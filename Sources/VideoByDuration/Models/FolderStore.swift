@@ -12,6 +12,8 @@ class FolderStore: ObservableObject {
 
     private let bookmarksKey = "savedFolderBookmarks"
     private static let supportedExtensions: Set<String> = ["mp4", "mov", "avi", "mkv", "m4v", "wmv", "webm"]
+    private let scanQueue = DispatchQueue(label: "com.vbd.scan", qos: .userInitiated)
+    private var activeScanCount = 0
 
     var filteredItems: [VideoItem] {
         videoItems.filter { item in
@@ -82,8 +84,6 @@ class FolderStore: ObservableObject {
     // MARK: - Scanning
 
     private func scanFolder(_ url: URL) {
-        isScanning = true
-
         // Step 1: Find all video files (synchronous, fast)
         var newItems: [VideoItem] = []
         if let enumerator = FileManager.default.enumerator(
@@ -107,12 +107,18 @@ class FolderStore: ObservableObject {
         }
         videoItems.append(contentsOf: newItems)
 
-        // Step 2: Load durations sequentially on a background thread
+        guard !newItems.isEmpty else { return }
+
+        // Track active scans so isScanning stays true until ALL folders finish
+        activeScanCount += 1
+        isScanning = true
+
+        // Step 2: Load durations on a serial queue (one file at a time, guaranteed completion)
         let items = newItems
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        scanQueue.async { [weak self] in
             for item in items {
                 let asset = AVURLAsset(url: item.url)
-                let cmDuration = asset.duration // synchronous, blocks this bg thread
+                let cmDuration = asset.duration
                 let secs = CMTimeGetSeconds(cmDuration)
                 let duration: TimeInterval? = secs.isFinite ? secs : nil
 
@@ -121,7 +127,12 @@ class FolderStore: ObservableObject {
                 }
             }
             DispatchQueue.main.async {
-                self?.isScanning = false
+                guard let self else { return }
+                self.activeScanCount -= 1
+                if self.activeScanCount <= 0 {
+                    self.activeScanCount = 0
+                    self.isScanning = false
+                }
             }
         }
     }

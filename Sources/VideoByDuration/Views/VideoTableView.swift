@@ -107,31 +107,25 @@ class PreviewWindowController {
     private var currentURL: URL?
 
     func toggle(url: URL) {
-        // If showing the same file, close it
-        if let window, window.isVisible, currentURL == url {
+        // If preview is visible, always close it first
+        if let window, window.isVisible {
             player?.pause()
             window.close()
-            currentURL = nil
-            return
+            // If same file, just close (toggle off)
+            if currentURL == url {
+                currentURL = nil
+                return
+            }
         }
 
-        // If window exists and is visible with a different file, swap content
-        if let window, window.isVisible {
-            currentURL = url
-            player?.replaceCurrentItem(with: AVPlayerItem(url: url))
-            player?.play()
-            window.title = url.lastPathComponent
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
-
-        // Create player
+        // Open preview for this file
         currentURL = url
         player = AVPlayer(url: url)
         playerView = AVPlayerView()
         playerView!.player = player
+        playerView!.controlsStyle = .floating
 
-        // Create floating panel that doesn't steal focus (like Quick Look)
+        // Non-activating panel: never steals keyboard focus from the table
         let w = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
             styleMask: [.titled, .closable, .resizable, .nonactivatingPanel, .utilityWindow],
@@ -141,16 +135,12 @@ class PreviewWindowController {
         w.title = url.lastPathComponent
         w.contentView = playerView
         w.level = .floating
+        w.hidesOnDeactivate = false
         w.center()
-        w.orderFront(nil)
+        w.orderFront(nil)  // orderFront, NOT makeKeyAndOrderFront — keeps focus on table
         w.isReleasedWhenClosed = false
         self.window = w
 
         player?.play()
-    }
-
-    func close() {
-        player?.pause()
-        window?.close()
     }
 }
