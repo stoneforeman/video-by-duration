@@ -40,6 +40,7 @@ struct VideoTableView: View {
             }
             .width(min: 200, ideal: 400)
         }
+        .id(store.tableRefreshID)
         .contextMenu(forSelectionType: VideoItem.ID.self) { ids in
             if let id = ids.first, let item = sortedItems.first(where: { $0.id == id }) {
                 Button("Reveal in Finder") {
