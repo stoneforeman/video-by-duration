@@ -118,15 +118,12 @@ class PreviewWindowController {
     private var currentURL: URL?
 
     func toggle(url: URL) {
-        // If preview is visible, always close it first
+        // If preview is visible, close it
         if let window, window.isVisible {
             player?.pause()
             window.close()
-            // If same file, just close (toggle off)
-            if currentURL == url {
-                currentURL = nil
-                return
-            }
+            currentURL = nil
+            return  // Always close on spacebar — open is a separate press
         }
 
         // Open preview for this file
