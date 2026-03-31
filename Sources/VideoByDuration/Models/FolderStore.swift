@@ -57,6 +57,18 @@ class FolderStore: ObservableObject {
         }
     }
 
+    func deleteVideo(id: UUID) -> Bool {
+        guard let idx = videoItems.firstIndex(where: { $0.id == id }) else { return false }
+        let item = videoItems[idx]
+        do {
+            try FileManager.default.trashItem(at: item.url, resultingItemURL: nil)
+            videoItems.remove(at: idx)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     func setFilter(min: TimeInterval, max: TimeInterval) {
         minDuration = min
         maxDuration = max
@@ -95,35 +107,19 @@ class FolderStore: ObservableObject {
         }
         videoItems.append(contentsOf: newItems)
 
-        // Step 2: Load durations on a background GCD queue, post results back one at a time
+        // Step 2: Load durations sequentially on a background thread
         let items = newItems
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let group = DispatchGroup()
-            let semaphore = DispatchSemaphore(value: 8) // max 8 concurrent
-
             for item in items {
-                semaphore.wait()
-                group.enter()
-
                 let asset = AVURLAsset(url: item.url)
-                asset.loadValuesAsynchronously(forKeys: ["duration"]) {
-                    var duration: TimeInterval? = nil
-                    let status = asset.statusOfValue(forKey: "duration", error: nil)
-                    if status == .loaded {
-                        let secs = CMTimeGetSeconds(asset.duration)
-                        if secs.isFinite { duration = secs }
-                    }
+                let cmDuration = asset.duration // synchronous, blocks this bg thread
+                let secs = CMTimeGetSeconds(cmDuration)
+                let duration: TimeInterval? = secs.isFinite ? secs : nil
 
-                    DispatchQueue.main.async {
-                        self?.updateDuration(id: item.id, duration: duration)
-                    }
-
-                    semaphore.signal()
-                    group.leave()
+                DispatchQueue.main.async {
+                    self?.updateDuration(id: item.id, duration: duration)
                 }
             }
-
-            group.wait()
             DispatchQueue.main.async {
                 self?.isScanning = false
             }

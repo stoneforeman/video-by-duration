@@ -11,13 +11,24 @@ struct SidebarView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(store.folders, id: \.self) { folder in
-                        VStack(alignment: .leading) {
-                            Text(folder.lastPathComponent)
-                                .fontWeight(.medium)
-                            Text(folder.path)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(folder.lastPathComponent)
+                                    .fontWeight(.medium)
+                                Text(folder.path)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Button {
+                                store.removeFolder(folder)
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove folder")
                         }
                         .contextMenu {
                             Button("Remove Folder") {
@@ -26,6 +37,11 @@ struct SidebarView: View {
                             Button("Reveal in Finder") {
                                 FileUtilities.revealInFinder(folder)
                             }
+                        }
+                    }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            store.removeFolder(store.folders[index])
                         }
                     }
                 }

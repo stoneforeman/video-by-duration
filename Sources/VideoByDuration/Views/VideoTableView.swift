@@ -6,6 +6,8 @@ struct VideoTableView: View {
     @EnvironmentObject var store: FolderStore
     @State private var selection = Set<VideoItem.ID>()
     @State private var sortOrder = [KeyPathComparator(\VideoItem.sortableDuration)]
+    @State private var showDeleteAlert = false
+    @State private var itemToDelete: VideoItem?
 
     var sortedItems: [VideoItem] {
         store.filteredItems.sorted(using: sortOrder)
@@ -49,6 +51,11 @@ struct VideoTableView: View {
                 Button("Quick Look") {
                     PreviewWindowController.shared.toggle(url: item.url)
                 }
+                Divider()
+                Button("Move to Trash", role: .destructive) {
+                    itemToDelete = item
+                    showDeleteAlert = true
+                }
             }
         }
         .onKeyPress(.space) {
@@ -58,6 +65,21 @@ struct VideoTableView: View {
             }
             PreviewWindowController.shared.toggle(url: item.url)
             return .handled
+        }
+        .onDeleteCommand {
+            if let id = selection.first, let item = sortedItems.first(where: { $0.id == id }) {
+                itemToDelete = item
+                showDeleteAlert = true
+            }
+        }
+        .alert("Move to Trash?", isPresented: $showDeleteAlert, presenting: itemToDelete) { item in
+            Button("Move to Trash", role: .destructive) {
+                _ = store.deleteVideo(id: item.id)
+                selection.remove(item.id)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { item in
+            Text("Are you sure you want to move \"\(item.filename)\" to the Trash?")
         }
         .safeAreaInset(edge: .bottom) {
             HStack {
