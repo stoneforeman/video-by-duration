@@ -40,7 +40,6 @@ struct VideoTableView: View {
             }
             .width(min: 200, ideal: 400)
         }
-        .id(store.tableRefreshID)
         .contextMenu(forSelectionType: VideoItem.ID.self) { ids in
             if let id = ids.first, let item = sortedItems.first(where: { $0.id == id }) {
                 Button("Reveal in Finder") {
@@ -66,6 +65,17 @@ struct VideoTableView: View {
             }
             PreviewWindowController.shared.toggle(url: item.url)
             return .handled
+        }
+        .onKeyPress(.escape) {
+            PreviewWindowController.shared.close()
+            return .handled
+        }
+        .onChange(of: selection) { _, newSelection in
+            // If preview is open, update it when selection changes (arrow keys)
+            guard PreviewWindowController.shared.isVisible,
+                  let id = newSelection.first,
+                  let item = sortedItems.first(where: { $0.id == id }) else { return }
+            PreviewWindowController.shared.show(url: item.url)
         }
         .onDeleteCommand {
             if let id = selection.first, let item = sortedItems.first(where: { $0.id == id }) {
@@ -140,8 +150,32 @@ class PreviewWindowController {
         w.center()
         w.orderFront(nil)  // orderFront, NOT makeKeyAndOrderFront — keeps focus on table
         w.isReleasedWhenClosed = false
+        // Pause when window is closed via X button
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [weak self] _ in
+            self?.player?.pause()
+            self?.currentURL = nil
+        }
         self.window = w
 
         player?.play()
+    }
+
+    var isVisible: Bool {
+        window?.isVisible ?? false
+    }
+
+    func show(url: URL) {
+        guard let window, window.isVisible else { return }
+        currentURL = url
+        player?.replaceCurrentItem(with: AVPlayerItem(url: url))
+        player?.play()
+        window.title = url.lastPathComponent
+    }
+
+    func close() {
+        guard let window, window.isVisible else { return }
+        player?.pause()
+        window.close()
+        currentURL = nil
     }
 }

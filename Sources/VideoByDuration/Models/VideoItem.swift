@@ -24,9 +24,10 @@ struct VideoItem: Identifiable, Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(duration)
     }
 
     static func == (lhs: VideoItem, rhs: VideoItem) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id && lhs.duration == rhs.duration
     }
 }

@@ -7,7 +7,6 @@ class FolderStore: ObservableObject {
     @Published var folders: [URL] = []
     @Published var videoItems: [VideoItem] = []
     @Published var isScanning = false
-    @Published var tableRefreshID = UUID()
     @Published var minDuration: TimeInterval = 0
     @Published var maxDuration: TimeInterval = .infinity
 
@@ -173,7 +172,6 @@ class FolderStore: ObservableObject {
                 }
                 Self.log("[MAIN] updated \(updated) items, replacing array")
                 self.videoItems = newArray
-                self.tableRefreshID = UUID()  // Force Table to re-render
 
                 self.activeScanCount -= 1
                 if self.activeScanCount <= 0 {
